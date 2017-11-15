@@ -66,9 +66,18 @@ class DBHelper extends SQLiteOpenHelper {
                 + FIELD_EMAIL + " TEXT" + ")";
         database.execSQL(createQuery);
 
-        //TODO:  Write the query to create the relationship table "Offerings"
-        //TODO:  Make sure to include foreign keys to the Courses and Instructors tables
+        // Write the query to create the relationship table "Offerings"
+        // Make sure to include foreign keys to the Courses and Instructors tables
 
+        createQuery = "CREATE TABLE " + OFFERINGS_TABLE + "("
+                + FIELD_CRN + "INTEGER, "
+                + FIELD_SEMESTER_CODE + "INTEGER, "
+                + FIELD_INSTRUCTOR_ID + "INTEGER, "
+                + "FOREIGN KEY (" + FIELD_COURSE_ID + ")"
+                    + " REFERENCES " + COURSES_TABLE + "(" + COURSES_KEY_FIELD_ID + "), "
+                + "FOREIGN KEY (" + FIELD_INSTRUCTOR_ID + ")"
+                    + " REFERENCES " + INSTRUCTORS_TABLE + "(" + INSTRUCTORS_KEY_FIELD_ID + ")"
+                + ")";
     }
 
     @Override
@@ -77,7 +86,8 @@ class DBHelper extends SQLiteOpenHelper {
                           int newVersion) {
         database.execSQL("DROP TABLE IF EXISTS " + COURSES_TABLE);
         database.execSQL("DROP TABLE IF EXISTS " + INSTRUCTORS_TABLE);
-        //TODO:  Drop the Offerings table
+        // Drop the Offerings table
+        database.execSQL("DROP TABLE IF EXISTS " + OFFERINGS_TABLE);
         onCreate(database);
     }
 
@@ -270,16 +280,105 @@ class DBHelper extends SQLiteOpenHelper {
 
 
     //********** OFFERING TABLE OPERATIONS:  ADD, GETALL, EDIT, DELETE
-    //TODO:  Create the following methods: addOffering, getAllOfferings, deleteOffering
-    //TODO:  deleteAllOfferings, updateOffering, and getOffering
-    //TODO:  Use the Courses and Instructors methods above as a guide.
+    //Create addOffering
+    public void addOffering(Offering offering) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
 
+        values.put(FIELD_CRN, offering.getCRN());
+        values.put(FIELD_SEMESTER_CODE, offering.getSemesterCode());
+        values.put(FIELD_COURSE_ID, offering.getCourse().getId());
+        values.put(FIELD_INSTRUCTOR_ID, offering.getInstructor().getId());
 
+        db.insert(OFFERINGS_TABLE, null, values);
 
+        // CLOSE THE DATABASE CONNECTION
+        db.close();
+    }
 
+    //Create getAllOfferings
+    public List<Offering> getAllOfferings() {
+        List<Offering> offeringsList = new ArrayList<>();
+        SQLiteDatabase database = this.getReadableDatabase();
+        Cursor cursor = database.query(
+                OFFERINGS_TABLE,
+                new String[]{FIELD_CRN, FIELD_SEMESTER_CODE, FIELD_COURSE_ID, FIELD_INSTRUCTOR_ID},
+                null,
+                null,
+                null, null, null, null);
 
+        //COLLECT EACH ROW IN THE TABLE
+        if (cursor.moveToFirst()) {
+            do {
+                Offering offering =
+                        new Offering(cursor.getInt(0),
+                                cursor.getInt(1),
+                                getCourse(cursor.getInt(2)),
+                                getInstructor(cursor.getInt(3))
+                        );
+                offeringsList.add(offering);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        database.close();
+        return offeringsList;
+    }
 
+    //Create deleteOffering
+    public void deleteOffering(Offering offering) {
+        SQLiteDatabase db = this.getWritableDatabase();
 
+        // DELETE THE TABLE ROW
+        db.delete(OFFERINGS_TABLE, FIELD_CRN + " = ?",
+                new String[]{String.valueOf(offering.getCRN())});
+        db.close();
+    }
+
+    //deleteAllOfferings
+    public void deleteAllOfferings() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(OFFERINGS_TABLE, null, null);
+        db.close();
+    }
+
+    //updateOffering
+    public void updateOffering(Offering offering) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        values.put(FIELD_CRN, offering.getCRN());
+        values.put(FIELD_SEMESTER_CODE, offering.getSemesterCode());
+        values.put(FIELD_COURSE_ID, offering.getCourse().getId());
+        values.put(FIELD_INSTRUCTOR_ID, offering.getInstructor().getId());
+
+        db.update(OFFERINGS_TABLE, values, FIELD_CRN + " = ?",
+                new String[]{String.valueOf(offering.getCRN())});
+        db.close();
+    }
+
+    //TODO:  getOffering
+    public Instructor getOffering(long id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(
+                OFFERINGS_TABLE,
+                new String[]{FIELD_CRN, FIELD_SEMESTER_CODE, FIELD_COURSE_ID, FIELD_INSTRUCTOR_ID},
+                FIELD_CRN + "=?",
+                new String[]{String.valueOf(id)},
+                null, null, null, null);
+
+        if (cursor != null)
+            cursor.moveToFirst();
+
+        Instructor instructor = new Instructor(
+                cursor.getLong(0),
+                cursor.getString(1),
+                cursor.getString(2),
+                cursor.getString(3));
+
+        cursor.close();
+        db.close();
+        return instructor;
+    }
 
 
     //********** IMPORT FROM CSV OPERATIONS:  Courses, Instructors and Offerings
